@@ -3,6 +3,7 @@ package handlers
 import (
 	"fmt"
 	"github.com/869413421/wechatbot/config"
+	"github.com/869413421/wechatbot/pkg/logger"
 	"github.com/869413421/wechatbot/service"
 	"github.com/eatmoreapple/openwechat"
 	"github.com/skip2/go-qrcode"
@@ -30,8 +31,10 @@ func QrCodeCallBack(uuid string) {
 		openwechat.PrintlnQrcodeUrl(uuid)
 	} else {
 		log.Println("login in linux")
-		q, _ := qrcode.New("https://login.weixin.qq.com/l/"+uuid, qrcode.Low)
-		fmt.Println(q.ToString(true))
+		url := "https://login.weixin.qq.com/l/" + uuid
+		log.Printf("如果二维码无法扫描，请尝试请复制链接到浏览器：%s", url)
+		q, _ := qrcode.New(url, qrcode.High)
+		fmt.Println(q.ToSmallString(true))
 	}
 }
 
@@ -48,7 +51,13 @@ func init() {
 
 // Handler 全局处理入口
 func Handler(msg *openwechat.Message) {
-	log.Printf("hadler Received msg : %v", msg.Content)
+	defer func() {
+		err := recover()
+		if err != nil {
+			logger.Warning(fmt.Sprintf("handler recover error: %v", err))
+		}
+	}()
+
 	// 处理群消息
 	if msg.IsSendByGroup() {
 		handlers[GroupHandler].handle(msg)
@@ -58,9 +67,9 @@ func Handler(msg *openwechat.Message) {
 	// 好友申请
 	if msg.IsFriendAdd() {
 		if config.LoadConfig().AutoPass {
-			_, err := msg.Agree("你好我是基于chatGPT引擎开发的微信机器人，你可以向我提问任何问题。")
+			_, err := msg.Agree("")
 			if err != nil {
-				log.Fatalf("add friend agree error : %v", err)
+				logger.Warning(fmt.Sprintf("add friend agree error : %v", err))
 				return
 			}
 		}
